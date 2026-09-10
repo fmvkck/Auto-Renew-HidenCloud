@@ -47,7 +47,7 @@ jobs:
           PROXY_SERVER: ${{ env.PROXY_SERVER }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python3 app.py
 
-      - name: 🔁 Keepalive: 每月1号推空 commit 防 schedule 被禁用
+      - name: "Keepalive: monthly empty commit to prevent schedule disable"
         if: always()
         run: |
           DOM=$(date -u +%d)

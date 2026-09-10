@@ -7,7 +7,7 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 jobs:
   Renew-HidenCloud:
@@ -47,6 +47,16 @@ jobs:
           PROXY_SERVER: ${{ env.PROXY_SERVER }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python3 app.py
 
+      - name: 🔁 Keepalive: 每月1号推空 commit 防 schedule 被禁用
+        if: always()
+        run: |
+          DOM=$(date -u +%d)
+          if [ "$DOM" != "01" ]; then echo "not day 1, skip ($DOM)"; exit 0; fi
+          git config user.name "fmvkck"
+          git config user.email "fmvkck@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+          git commit --allow-empty -m "keepalive: prevent schedule disable $(date -u +%F)"
+          git push origin HEAD:main
       - name: 🧽 清理进程和临时文件
         if: always()
         run: |

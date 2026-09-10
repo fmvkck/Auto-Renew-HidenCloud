@@ -365,8 +365,11 @@ def main():
                 log(f"📆 续费后到期时间：{new_due}")
                 status = "✅ 续期成功"
 
-            # 发送 Telegram 通知
-            send_telegram_notification(status, old_due, new_due)
+            # 发送 Telegram 通知（未到窗口=例行空转，静默不发，减噪）
+            if renew_result != "NOT_TIME":
+                send_telegram_notification(status, old_due, new_due)
+            else:
+                log("ℹ️ 未到窗口，跳过 TG 通知")
 
             if renew_result == "NOT_TIME":
                 sys.exit(0)

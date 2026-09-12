@@ -60,7 +60,7 @@ jobs:
       - name: 🧽 清理进程和临时文件
         if: always()
         run: |
-          pkill -f sing-box || true
+          pkill -f wireproxy || true
           pkill -f chromedriver || true
           pkill -f chrome || true
           pkill -f Xvfb || true

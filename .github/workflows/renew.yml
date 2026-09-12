@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb
           pip install patchright requests 'requests[socks]'
-          python -m patchright install --with-deps chrome
+          python -m patchright install --with-deps chromium
           
       - name: "⚙ 设置代理 (WARP wireproxy)"
         env:

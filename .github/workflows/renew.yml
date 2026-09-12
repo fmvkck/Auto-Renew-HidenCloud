@@ -63,6 +63,8 @@ jobs:
           [ "$IP" = "FAIL" ] && { echo "hy2 tunnel dead"; cat /tmp/hysteria.log; exit 1; }
           echo "IS_PROXY=true" >> $GITHUB_ENV
           echo "PROXY_SERVER=socks5://127.0.0.1:18400" >> $GITHUB_ENV
+          # 锁面板域名走 IPv4（hy2 节点 v6 出口被 CF 盯，v4 实测放行）
+          echo "104.26.0.183 dash.hidencloud.com freepanel.hidencloud.com www.hidencloud.com hidencloud.com" | sudo tee -a /etc/hosts
 
       - name: 🚀 运行续期脚本
         env:

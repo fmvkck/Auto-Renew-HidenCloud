@@ -144,22 +144,6 @@ def login(page):
         return False
     log("💣 尝试账号密码登录...")
     try:
-        # 暖身：WARP 冷启动会话需要持续流量养熟（本机长驻 wireproxy 从不被拦的核心理由）
-        try:
-            log("🔥 WARP 会话暖身 (240s)...")
-            import urllib.request as _ur
-            t0 = time.time()
-            while time.time() - t0 < 240:
-                try:
-                    _ur.urlopen(_ur.Request("https://speed.cloudflare.com/__down?bytes=200000",
-                        headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
-                    ), timeout=20).read()
-                except Exception:
-                    time.sleep(2)
-                time.sleep(random.uniform(3, 6))
-            log("🔥 暖身完成")
-        except Exception as e:
-            log(f"暖身异常(忽略): {e}")
         page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
         # 挑战页没有 email 框：它出现 = 挑战已过（内嵌 Turnstile 组件不算挑战）
         page.wait_for_selector('input[name="email"]', timeout=180000)

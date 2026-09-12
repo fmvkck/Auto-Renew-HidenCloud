@@ -30,24 +30,40 @@ jobs:
           pip install patchright requests 'requests[socks]'
           python -m patchright install --with-deps chromium
           
-      - name: "⚙ 设置代理 (WARP wireproxy)"
+      - name: "⚙ 设置代理 (hy2 德国节点)"
         env:
-          WARP_CONF: ${{ secrets.WARP_CONF }}
+          NODE_LINK: ${{ secrets.NODE_LINK }}
         run: |
           set -e
-          echo "$WARP_CONF" > /tmp/wireproxy.conf
-          WV=$(curl -s https://api.github.com/repos/windtf/wireproxy/releases/latest | grep -oE '"tag_name": *"[^"]+"' | cut -d'"' -f4)
-          [ -z "$WV" ] && WV=v1.1.3
-          curl -sL -o /tmp/wireproxy.tar.gz "https://github.com/windtf/wireproxy/releases/download/${WV}/wireproxy_linux_amd64.tar.gz"
-          tar -xzf /tmp/wireproxy.tar.gz -C /tmp
-          nohup /tmp/wireproxy -c /tmp/wireproxy.conf > /tmp/wireproxy.log 2>&1 &
-          sleep 8
+          # 解析 hy2:// 密码@host:port/?insecure=1&sni=bing.com
+          LINK="${NODE_LINK#hy2://}"
+          CREDS="${LINK%%@*}"
+          REST="${LINK#*@}"
+          HOSTPORT="${REST%%/*}"
+          HOST="${HOSTPORT%%:*}"
+          PORT="${HOSTPORT##*:}"
+          cat > /tmp/hy2.yaml <<YAML
+          server: ${HOST}:${PORT}
+          auth: ${CREDS}
+          bandwidth:
+            up: 50 mb
+            down: 50 mb
+          tls:
+            insecure: true
+            sni: bing.com
+          socks5:
+            listen: 127.0.0.1:18400
+          YAML
+          curl -sL -o /tmp/hysteria_bin "https://github.com/apernet/hysteria/releases/download/app%2Fv2.6.2/hysteria-linux-amd64"
+          chmod +x /tmp/hysteria_bin
+          nohup /tmp/hysteria_bin client --config /tmp/hy2.yaml > /tmp/hysteria.log 2>&1 &
+          sleep 6
           IP=$(curl -s --max-time 15 -x socks5h://127.0.0.1:18400 https://api.ip.sb/ip || echo FAIL)
-          echo "WARP exit IP: $IP"
-          [ "$IP" = "FAIL" ] && { echo "WARP tunnel dead"; cat /tmp/wireproxy.log; exit 1; }
+          echo "hy2 exit IP: $IP"
+          [ "$IP" = "FAIL" ] && { echo "hy2 tunnel dead"; cat /tmp/hysteria.log; exit 1; }
           echo "IS_PROXY=true" >> $GITHUB_ENV
           echo "PROXY_SERVER=socks5://127.0.0.1:18400" >> $GITHUB_ENV
-          
+
       - name: 🚀 运行续期脚本
         env:
           EMAIL: ${{ secrets.EMAIL }}

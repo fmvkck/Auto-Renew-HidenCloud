@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os,re,sys,time,random,requests
-from playwright.sync_api import sync_playwright
+try:
+    from patchright.sync_api import sync_playwright  # 反检测浏览器优先
+except ImportError:
+    from playwright.sync_api import sync_playwright  # 兜底
 
 # --- 环境变量 ---
 COOKIE_VALUE = os.environ.get('COOKIE_VALUE') or ""    # remember_web cookie 值，必填
@@ -85,18 +88,35 @@ def send_telegram_notification(status, old_due, new_due):
         log(f"❌ Telegram 通知异常: {e}")
         return False
 
-def handle_cloudflare(page):
-    iframe_selector = 'iframe[src*="challenges.cloudflare.com"]'
-    if page.locator(iframe_selector).count() == 0:
+def is_cf_challenge(page):
+    """检测 CF 全形态挑战：iframe 型 + 整页型（Security Verification / Just a moment）"""
+    try:
+        if page.locator('iframe[src*="challenges.cloudflare.com"]').count() > 0:
+            return True
+        title = page.title().lower()
+        if "just a moment" in title or "security verification" in title:
+            return True
+        body = page.locator("body").inner_text(timeout=2000)[:500].lower()
+        if "verify you are human" in body or "checking your browser" in body:
+            return True
+    except Exception:
+        pass
+    return False
+
+def handle_cloudflare(page, max_wait=120):
+    """等待并通过 CF 挑战。patchright 下通常自动过；整页挑战则等待+必要时重载。"""
+    if not is_cf_challenge(page):
         return True
     log("⚠️ 检测到 Cloudflare 验证...")
     start_time = time.time()
-    while time.time() - start_time < 60:
-        if page.locator(iframe_selector).count() == 0:
+    reloaded = False
+    while time.time() - start_time < max_wait:
+        if not is_cf_challenge(page):
             log("✅ Cloudflare 验证通过！")
+            time.sleep(2)  # 等页面稳定
             return True
         try:
-            frame = page.frame_locator(iframe_selector)
+            frame = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
             checkbox = frame.locator('input[type="checkbox"]')
             if checkbox.is_visible():
                 log("🖱️ 点击验证复选框...")
@@ -105,10 +125,19 @@ def handle_cloudflare(page):
                 log("⏳ 已点击，等待验证结果...")
                 time.sleep(5)
             else:
-                time.sleep(1)
+                time.sleep(3)
+                # 整页挑战卡死 40s+ 时重载一次（新会话可能直接放行）
+                if not reloaded and time.time() - start_time > 40:
+                    reloaded = True
+                    cur = page.url
+                    log(f"🔄 挑战卡住，重载 {cur}")
+                    try:
+                        page.goto(cur, wait_until="domcontentloaded", timeout=60000)
+                    except Exception:
+                        pass
         except Exception:
-            pass
-    log("❌ 验证超时。")
+            time.sleep(2)
+    log(f"❌ 验证超时({max_wait}s)。")
     return False
 
 def login(page):
@@ -143,7 +172,10 @@ def login(page):
     log("💣 尝试账号密码登录...")
     try:
         page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-        handle_cloudflare(page)
+        if not handle_cloudflare(page, max_wait=150):
+            log("❌ 登录页 CF 挑战未过")
+            return False
+        page.wait_for_selector('input[name="email"]', timeout=30000)
         page.fill('input[name="email"]', EMAIL)
         page.fill('input[name="password"]', PASSWORD)
         time.sleep(0.5)
@@ -336,7 +368,35 @@ def main():
             page = context.new_page()
             page.add_init_script(STEALTH_JS)
 
-            if not login(page):
+            login_ok = False
+            for attempt in range(3):
+                if login(page):
+                    login_ok = True
+                    break
+                log(f"🔁 登录第 {attempt + 1} 次失败，{'重试...' if attempt < 2 else '放弃'}")
+                if attempt < 2:
+                    time.sleep(10)
+                    try:
+                        page.close(); context.close(); browser.close()
+                    except Exception:
+                        pass
+                    browser = p.chromium.launch(
+                        channel="chrome",
+                        headless=False,
+                        args=['--no-sandbox', '--disable-blink-features=AutomationControlled', '--disable-infobars']
+                    )
+                    context = browser.new_context(
+                        viewport={'width': 1920, 'height': 1080},
+                        user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                        proxy={"server": PROXY_SERVER} if IS_PROXY else None
+                    )
+                    page = context.new_page()
+                    page.add_init_script(STEALTH_JS)
+            if not login_ok:
+                try:
+                    send_telegram_notification("❌ HidenCloud 登录失败(CF拦截或凭证失效), 续期未执行", "", "")
+                except Exception:
+                    pass
                 sys.exit(1)
 
             # 登录成功后，自动获取 Server ID

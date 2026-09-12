@@ -1,3 +1,4 @@
+IS_PROXY_G = False  # 第3轮直连开关
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -376,6 +377,10 @@ def main():
                 log(f"🔁 登录第 {attempt + 1} 次失败，{'重试...' if attempt < 2 else '放弃'}")
                 if attempt < 2:
                     time.sleep(10)
+                    if attempt == 1 and IS_PROXY:
+                        log("🔁 第3轮改直连重试（绕开代理出口IP）")
+                        global IS_PROXY_G
+                        IS_PROXY_G = False
                     try:
                         page.close(); context.close(); browser.close()
                     except Exception:
@@ -385,10 +390,11 @@ def main():
                         headless=False,
                         args=['--no-sandbox', '--disable-blink-features=AutomationControlled', '--disable-infobars']
                     )
+                    use_proxy = IS_PROXY and not IS_PROXY_G
                     context = browser.new_context(
                         viewport={'width': 1920, 'height': 1080},
                         user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-                        proxy={"server": PROXY_SERVER} if IS_PROXY else None
+                        proxy={"server": PROXY_SERVER} if use_proxy else None
                     )
                     page = context.new_page()
                     page.add_init_script(STEALTH_JS)

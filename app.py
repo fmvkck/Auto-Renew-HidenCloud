@@ -27,11 +27,6 @@ REQUESTS_PROXIES = {"http": PROXY_SERVER, "https": PROXY_SERVER} if IS_PROXY els
 def log(message):
     print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}", flush=True)
 
-STEALTH_JS = """
-Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-window.chrome = { runtime: {} };
-"""
-
 def get_current_ip(proxy_server=None):
     """获取当前出口IP"""
     proxies = {"http": proxy_server, "https": proxy_server} if (proxy_server and IS_PROXY) else None
@@ -357,17 +352,11 @@ def main():
 
             log("🚀 启动浏览器...")
             browser = p.chromium.launch(
-                channel="chrome",
                 headless=False,
-                args=['--no-sandbox', '--disable-blink-features=AutomationControlled', '--disable-infobars']
-            )
-            context = browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                args=['--no-sandbox'],
                 proxy={"server": PROXY_SERVER} if IS_PROXY else None
             )
-            page = context.new_page()
-            page.add_init_script(STEALTH_JS)
+            page = browser.new_page()
 
             login_ok = False
             for attempt in range(3):
@@ -385,19 +374,13 @@ def main():
                         page.close(); context.close(); browser.close()
                     except Exception:
                         pass
-                    browser = p.chromium.launch(
-                        channel="chrome",
-                        headless=False,
-                        args=['--no-sandbox', '--disable-blink-features=AutomationControlled', '--disable-infobars']
-                    )
                     use_proxy = IS_PROXY and not IS_PROXY_G
-                    context = browser.new_context(
-                        viewport={'width': 1920, 'height': 1080},
-                        user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                    browser = p.chromium.launch(
+                        headless=False,
+                        args=['--no-sandbox'],
                         proxy={"server": PROXY_SERVER} if use_proxy else None
                     )
-                    page = context.new_page()
-                    page.add_init_script(STEALTH_JS)
+                    page = browser.new_page()
             if not login_ok:
                 try:
                     send_telegram_notification("❌ HidenCloud 登录失败(CF拦截或凭证失效), 续期未执行", "", "")

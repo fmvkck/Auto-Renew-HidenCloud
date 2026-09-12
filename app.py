@@ -329,7 +329,8 @@ def main():
             log("🚀 启动浏览器...")
             browser = p.chromium.launch(
                 headless=False,
-                args=['--no-sandbox'],
+                args=['--no-sandbox',
+                      '--host-resolver-rules=MAP dash.hidencloud.com 104.26.0.183, MAP hidencloud.com 104.26.0.183, MAP freepanel.hidencloud.com 104.26.0.183'],
                 proxy={"server": PROXY_SERVER} if IS_PROXY else None
             )
             page = browser.new_page()

@@ -89,7 +89,11 @@ def is_cf_challenge(page):
     登录表单内嵌的 Turnstile 小组件 iframe 属于正常页面元素，不算挑战。"""
     try:
         title = page.title().lower()
-        if "just a moment" in title or "security verification" in title:
+        # 多语言挑战页标题（IP 所在地决定挑战页语言）
+        challenge_titles = ("just a moment", "nur einen moment", "un moment", "un momento",
+                            "un momento, por favor", "attenzione", "security verification",
+                            "checking your browser", "verificando", "vérification")
+        if any(x in title for x in challenge_titles):
             return True
         body = page.locator("body").inner_text(timeout=2000)[:500].lower()
         if "verify you are human" in body or "checking your browser" in body:
@@ -146,9 +150,9 @@ def login(page):
     try:
         page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
         # 挑战页没有 email 框：它出现 = 挑战已过（内嵌 Turnstile 组件不算挑战）
-        page.wait_for_selector('input[name="email"]', timeout=180000)
+        page.wait_for_selector('input[name="username"]', timeout=180000)
         log("✅ 登录页就绪（CF 挑战已过）")
-        page.fill('input[name="email"]', EMAIL)
+        page.fill('input[name="username"]', EMAIL)
         page.fill('input[name="password"]', PASSWORD)
         time.sleep(0.5)
         handle_cloudflare(page)
@@ -333,7 +337,8 @@ def main():
                       '--host-resolver-rules=MAP dash.hidencloud.com 104.26.0.183, MAP hidencloud.com 104.26.0.183, MAP freepanel.hidencloud.com 104.26.0.183'],
                 proxy={"server": PROXY_SERVER} if IS_PROXY else None
             )
-            page = browser.new_page()
+            context = browser.new_context(locale="de-DE", timezone_id="Europe/Berlin")
+            page = context.new_page()
 
             login_ok = False
             for attempt in range(3):
@@ -357,7 +362,8 @@ def main():
                         args=['--no-sandbox'],
                         proxy={"server": PROXY_SERVER} if use_proxy else None
                     )
-                    page = browser.new_page()
+                    context = browser.new_context(locale="de-DE", timezone_id="Europe/Berlin")
+                    page = context.new_page()
             if not login_ok:
                 try:
                     send_telegram_notification("❌ HidenCloud 登录失败(CF拦截或凭证失效), 续期未执行", "", "")

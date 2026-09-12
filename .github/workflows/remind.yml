@@ -1,0 +1,33 @@
+name: HidenCloud 到期提醒
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'   # 每天北京时间 10:00
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 计算剩余天数并发通知
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          DUE="2026-09-16"   # ← 到期日，每次手动续期后改这里
+          TODAY=$(date -u +%F)
+          DAYS=$(( ($(date -d "$DUE" +%s) - $(date -d "$TODAY" +%s)) / 86400 ))
+          echo "到期: $DUE | 今天: $TODAY | 剩 $DAYS 天"
+          if [ "$DAYS" -le 3 ]; then
+            if [ "$DAYS" -lt 0 ]; then
+              MSG="🚨 HidenCloud 已过期 $((-DAYS)) 天！服务器可能已被删，去 https://dash.hidencloud.com 查看"
+            else
+              MSG="⏰ HidenCloud ${DAYS}天后到期（${DUE}），去面板手动续期：https://dash.hidencloud.com"
+            fi
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${TG_CHAT_ID}" \
+              --data-urlencode text="${MSG}"
+            echo "TG 已发送"
+          else
+            echo "未到提醒窗口(剩${DAYS}天)，静默"
+          fi

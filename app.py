@@ -144,7 +144,17 @@ def login(page):
         return False
     log("💣 尝试账号密码登录...")
     try:
-        page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
+        # 暖身：先访问 CF 自家与普通站点，让 WARP 会话在边缘积累信誉
+        try:
+            log("🔥 暖身浏览...")
+            page.goto("https://www.cloudflare.com/", wait_until="domcontentloaded", timeout=30000)
+            time.sleep(random.uniform(8, 15))
+            page.goto("https://blog.cloudflare.com/", wait_until="domcontentloaded", timeout=30000)
+            time.sleep(random.uniform(5, 10))
+            page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
+        except Exception as e:
+            log(f"暖身异常(忽略): {e}")
+            page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
         # 挑战页没有 email 框：它出现 = 挑战已过（内嵌 Turnstile 组件不算挑战）
         page.wait_for_selector('input[name="email"]', timeout=180000)
         log("✅ 登录页就绪（CF 挑战已过）")

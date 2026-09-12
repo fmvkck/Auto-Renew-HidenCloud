@@ -352,6 +352,7 @@ def main():
 
             log("🚀 启动浏览器...")
             browser = p.chromium.launch(
+                channel="chrome",
                 headless=False,
                 args=['--no-sandbox'],
                 proxy={"server": PROXY_SERVER} if IS_PROXY else None
@@ -376,6 +377,7 @@ def main():
                         pass
                     use_proxy = IS_PROXY and not IS_PROXY_G
                     browser = p.chromium.launch(
+                        channel="chrome",
                         headless=False,
                         args=['--no-sandbox'],
                         proxy={"server": PROXY_SERVER} if use_proxy else None

@@ -30,11 +30,23 @@ jobs:
           pip install patchright requests 'requests[socks]'
           python -m patchright install --with-deps chrome
           
-      - name: ⚙ 设置代理 (sing-box)
+      - name: "⚙ 设置代理 (WARP wireproxy)"
         env:
-          NODE_LINK: ${{ secrets.NODE_LINK }}
+          WARP_CONF: ${{ secrets.WARP_CONF }}
         run: |
-          bash <(wget -qO- https://main.ssss.nyc.mn/setup_proxy.sh)
+          set -e
+          echo "$WARP_CONF" > /tmp/wireproxy.conf
+          WV=$(curl -s https://api.github.com/repos/pufferfish-gcc/wireproxy/releases/latest | grep -oE '"tag_name": *"[^"]+"' | cut -d'"' -f4)
+          [ -z "$WV" ] && WV=v1.0.3
+          curl -sL -o /tmp/wireproxy.tar.gz "https://github.com/pufferfish-gcc/wireproxy/releases/download/${WV}/wireproxy_linux_amd64.tar.gz"
+          tar -xzf /tmp/wireproxy.tar.gz -C /tmp
+          nohup /tmp/wireproxy -c /tmp/wireproxy.conf > /tmp/wireproxy.log 2>&1 &
+          sleep 8
+          IP=$(curl -s --max-time 15 -x socks5h://127.0.0.1:18400 https://api.ip.sb/ip || echo FAIL)
+          echo "WARP exit IP: $IP"
+          [ "$IP" = "FAIL" ] && { echo "WARP tunnel dead"; cat /tmp/wireproxy.log; exit 1; }
+          echo "IS_PROXY=true" >> $GITHUB_ENV
+          echo "PROXY_SERVER=socks5://127.0.0.1:18400" >> $GITHUB_ENV
           
       - name: 🚀 运行续期脚本
         env:

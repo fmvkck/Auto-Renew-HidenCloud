@@ -14,7 +14,7 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
-          DUE="2026-09-16"   # ← 到期日，每次手动续期后改这里
+          DUE="2026-09-22"   # ← 到期日，每次手动续期后改这里
           TODAY=$(date -u +%F)
           DAYS=$(( ($(date -d "$DUE" +%s) - $(date -d "$TODAY" +%s)) / 86400 ))
           echo "到期: $DUE | 今天: $TODAY | 剩 $DAYS 天"
